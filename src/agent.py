@@ -145,9 +145,9 @@ class ConversationalAgent:
             return "I'm sorry, I don't have enough information in my internal documents to answer that."
         
         # Ultra-Precise Targeted Extraction
-        query_lower = query.lower()
-        query_words = [w for w in query_lower.split() if len(w) > 3]
-        if not query_words: query_words = query_lower.split()
+        query_clean = re.sub(r'[^\w\s]', '', query.lower())
+        query_words = [w for w in query_clean.split() if len(w) >= 3]
+        if not query_words: query_words = query_clean.split()
         
         line_data = []
         seen_lines = set()
@@ -163,7 +163,7 @@ class ConversationalAgent:
                 line_lower = line_strip.lower()
                 
                 # High weight for exact phrase match (Avoids "Cash Deposit" noise for "Safe Deposit")
-                if query_lower in line_lower: score += 10
+                if query_clean in line_lower: score += 10
                 
                 # Weight for individual keywords
                 score += sum(2 if word in line_lower else 0 for word in query_words)
@@ -180,7 +180,10 @@ class ConversationalAgent:
             return "I'm sorry, I couldn't find a precise match for that in the internal records."
 
         # Format as clean bullet points
-        formatted_lines = [f"- {entry['text']}" for entry in top_entries]
+        formatted_lines = []
+        for entry in top_entries:
+            text = entry['text'].lstrip('- ').lstrip('* ').strip()
+            formatted_lines.append(f"- {text}")
         
         # Track all unique sources used
         unique_sources = list(set(entry['source'] for entry in top_entries))
