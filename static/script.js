@@ -32,7 +32,7 @@ async function sendMessage() {
     scrollToBottom();
 
     try {
-        const response = await fetch("/chat", {
+        const response = await fetch("http://127.0.0.1:8000/chat", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
@@ -56,7 +56,8 @@ async function sendMessage() {
             }
             appendHTMLMessage(formattedText, 'bot-message');
         } else {
-            appendMessage("Sorry, I encountered an error connecting to the backend API.", 'bot-message');
+            const errorMsg = data.detail || "Sorry, I encountered an error connecting to the backend API.";
+            appendMessage(errorMsg, 'bot-message');
         }
     } catch (error) {
         typingIndicator.style.display = "none";

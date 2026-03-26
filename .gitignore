@@ -1,8 +1,14 @@
-.env
 .venv/
 __pycache__/
 *.pyc
-.DS_Store
+.env
+data/faiss.index
+data/index_cache.pkl
 data/escalations.json
-test_*.py
+*.txt
 *.log
+repo.zip
+repo_temp/
+tmp/
+.vscode/
+.idea/

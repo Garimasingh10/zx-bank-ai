@@ -1,14 +1,11 @@
 import logging
-from rich.console import Console
-from rich.logging import RichHandler
+import sys
 
-console = Console()
-
+# Standard logging without Rich for maximum reliability on Windows processes
 logging.basicConfig(
     level=logging.INFO,
-    format="%(message)s",
-    datefmt="[%X]",
-    handlers=[RichHandler(console=console, rich_tracebacks=True, markup=True)]
+    format="%(asctime)s | %(levelname)s | %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)]
 )
 
 logger = logging.getLogger("zx-bank-ai")
@@ -18,15 +15,19 @@ def log_event(event_type: str, details: dict):
     Helper to log structured observability events to the terminal.
     Ensures all prompt requirements for Observability are met.
     """
-    logger.info(f"[bold cyan]>>> {event_type} <<<[/bold cyan]")
-    for k, v in details.items():
-        if isinstance(v, dict):
-            logger.info(f"  [bold]{k}:[/bold]")
-            for sub_k, sub_v in v.items():
-                logger.info(f"    - {sub_k}: {sub_v}")
-        elif isinstance(v, list):
-            logger.info(f"  [bold]{k}:[/bold]")
-            for item in v:
-                logger.info(f"    - {item}")
-        else:
-            logger.info(f"  [bold]{k}:[/bold] {v}")
+    try:
+        logger.info(f">>> {event_type} <<<")
+        for k, v in details.items():
+            if isinstance(v, dict):
+                logger.info(f"  {k}:")
+                for sub_k, sub_v in v.items():
+                    logger.info(f"    - {sub_k}: {sub_v}")
+            elif isinstance(v, list):
+                logger.info(f"  {k}:")
+                for item in v:
+                    logger.info(f"    - {item}")
+            else:
+                logger.info(f"  {k}: {v}")
+    except Exception as e:
+        # Prevent logging errors from crashing the main application
+        pass

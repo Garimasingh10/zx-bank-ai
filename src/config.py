@@ -6,10 +6,10 @@ load_dotenv()
 
 class Config:
     # API Keys
-    OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+    OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip()
     
-    # Model configuration (DeepSeek-V3 or GPT-4o-mini via OpenRouter generally great for this)
-    LLM_MODEL = os.getenv("LLM_MODEL", "meta-llama/llama-3.1-8b-instruct:free")
+    # Model configuration
+    LLM_MODEL = os.getenv("LLM_MODEL", "meta-llama/llama-3.1-8b-instruct:free").strip()
     
     # Paths
     DOCS_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "docs")
@@ -17,7 +17,7 @@ class Config:
     
     # Retrieval Settings
     EMBEDDING_MODEL = "all-MiniLM-L6-v2"
-    MAX_RETRIEVED_DOCS = 3
-    DISTANCE_THRESHOLD = 1.2 # Lower means closer match required to avoid hallucination
+    MAX_RETRIEVED_DOCS = 10
+    DISTANCE_THRESHOLD = 0.4 # Strict threshold to prevent hallucination
 
 config = Config()
