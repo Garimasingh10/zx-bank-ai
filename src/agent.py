@@ -3,7 +3,7 @@ import os
 import requests
 import re
 import time
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from src.logger import log_event, logger
 from src.config import config
 from src.retriever import HybridRetriever
@@ -50,12 +50,20 @@ class ConversationalAgent:
             logger.error(f"LLM FAST FAIL | {e}")
             return None
 
-    def classify_query(self, query: str):
+    def classify_query(self, query: str, session_id: Optional[str] = None):
         """
         Requirement: Resist out-of-domain and adversarial queries.
         """
         q_lower = query.lower().strip()
         
+        # 0. State-Aware Escalation Check
+        if session_id:
+            session = self.sessions.get(session_id, {})
+            history = session.get("history", [])
+            if history and "provide your name and contact number" in history[-1]["assistant"].lower():
+                # If the previous question was for contact info, we prioritize ESCALATION
+                return "ESCALATION"
+
         # 1. Hardcoded Fast-Track (Safety & Small Talk)
         if q_lower in ["small talk", "hello", "hi", "hey"]:
             return "SMALL_TALK"
@@ -84,17 +92,29 @@ class ConversationalAgent:
     def handle_escalation(self, session_id: str, query: str):
         session = self.sessions.get(session_id, {})
         history = session.get("history", [])
-        full_text = " ".join([h["user"] for h in history]) + " " + query
         
-        phones = re.findall(r'[\d\-\(\) \+]{7,15}', full_text)
-        names = re.findall(r'(?:name is |i am )?([A-Z][a-z]+ [A-Z][a-z]+)', full_text)
+        # Combine last few turns to catch name/number if split
+        context_text = " ".join([h["user"] for h in history[-2:]]) + " " + query
         
+        phones = re.findall(r'(\+?\d[\d\-\(\) ]{7,15}\d)', context_text)
+        # More flexible name extraction
+        names = re.findall(r'(?:name is|i am|me is|called|this is)\s+([A-Za-z\s]+)', context_text, re.I)
+        if not names:
+            # Look for common patterns like "First Last and my number..."
+            names = re.findall(r'^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+and', query)
+        if not names:
+            # Just take the first two capitalized words if they look like a name
+            names = re.findall(r'^([A-Z][a-z]+\s+[A-Z][a-z]+)', query)
+
         if phones:
-            data = {"name": names[0] if names else "Unknown Client", "contact": phones[-1]}
+            contact_number = phones[-1].strip()
+            user_name = names[0].strip() if names else "Client"
+            data = {"name": user_name, "contact": contact_number, "session_id": session_id}
             self._save_escalation(data)
-            return f"Thank you! A human representative will call you shortly at {phones[-1]}."
+            logger.info(f"ESCALATION SAVED | {data}")
+            return f"Thank you, {user_name}! I have recorded your request. A ZX Bank representative will contact you at {contact_number} within 24 hours."
             
-        return "I can connect you with a human representative. Could you please provide your name and contact number?"
+        return "I can connect you with a human representative for further assistance. Could you please provide your name and contact number?"
 
     def _save_escalation(self, data):
         escalations = []
@@ -185,7 +205,7 @@ class ConversationalAgent:
             logger.info(f"AI ENGINE TRACE | Session: {session_id}")
             logger.info(f"INPUT QUERY: '{query}'")
             
-            intent = self.classify_query(query)
+            intent = self.classify_query(query, session_id)
             logger.info(f"STEP 1: CLASSIFICATION -> {intent}")
             
             if session_id not in self.sessions:
