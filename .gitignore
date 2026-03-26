@@ -3,3 +3,6 @@
 __pycache__/
 *.pyc
 .DS_Store
+data/escalations.json
+test_*.py
+*.log
