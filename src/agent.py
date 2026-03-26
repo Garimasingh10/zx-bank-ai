@@ -124,33 +124,53 @@ class ConversationalAgent:
         if not docs:
             return "I'm sorry, I don't have enough information in my internal documents to answer that."
         
-        # Ultra-Precise Line Extraction
-        query_words = [w for w in query.lower().split() if len(w) > 3]
-        if not query_words: query_words = query.lower().split()
+        # Ultra-Precise Targeted Extraction
+        query_lower = query.lower()
+        query_words = [w for w in query_lower.split() if len(w) > 3]
+        if not query_words: query_words = query_lower.split()
         
-        line_scores = []
+        line_data = []
+        seen_lines = set()
+        
         for d in docs:
+            source = d.metadata.get('source', 'Unknown')
             for line in d.page_content.split('\n'):
                 line_strip = line.strip()
-                if not line_strip or len(line_strip) < 5: continue
+                if not line_strip or len(line_strip) < 5 or line_strip in seen_lines: continue
                 
-                # Score based on keyword density
-                score = sum(2 if word in line_strip.lower() else 0 for word in query_words)
+                # Phrase-weighted scoring for precision
+                score = 0
+                line_lower = line_strip.lower()
+                
+                # High weight for exact phrase match (Avoids "Cash Deposit" noise for "Safe Deposit")
+                if query_lower in line_lower: score += 10
+                
+                # Weight for individual keywords
+                score += sum(2 if word in line_lower else 0 for word in query_words)
+                
                 if score > 0:
-                    line_scores.append((score, line_strip))
+                    line_data.append({"score": score, "text": line_strip, "source": source})
+                    seen_lines.add(line_strip)
         
-        # Sort by relevance and take top 5
-        line_scores.sort(key=lambda x: x[0], reverse=True)
-        top_lines = [ls[1] for ls in line_scores[:8]]
+        # Sort by relevance and limit
+        line_data.sort(key=lambda x: x["score"], reverse=True)
+        top_entries = line_data[:10]
         
-        if not top_lines:
-            top_lines = [docs[0].page_content.split('\n')[0]]
+        if not top_entries:
+            return "I'm sorry, I couldn't find a precise match for that in the internal records."
 
-        summary = "\n".join(top_lines)
+        # Format as clean bullet points
+        formatted_lines = [f"- {entry['text']}" for entry in top_entries]
+        
+        # Track all unique sources used
+        unique_sources = list(set(entry['source'] for entry in top_entries))
+        sources_str = ", ".join(unique_sources)
+
+        summary = "\n".join(formatted_lines)
         return (
             "**[ZX Bank - Official Intelligence (Targeted Mode)]**\n\n"
             f"{summary}\n\n"
-            f"Source: {docs[0].metadata.get('source')}"
+            f"Sources: {sources_str}"
         )
 
     def get_elite_response(self, query: str) -> str:
