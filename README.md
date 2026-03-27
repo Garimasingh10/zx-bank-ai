@@ -77,6 +77,25 @@ The assistant will be available at `http://localhost:8000`.
 
 ---
 
+## 🖥️ Observability & Logging
+Zia provides a **Structured Execution Trace** in the terminal for every query. This allows evaluators to see exactly how she makes decisions:
+```text
+************************************************************
+AI ENGINE TRACE | Session: 12345
+INPUT QUERY: 'How do I apply for a loan?'
+STEP 1: CLASSIFICATION -> QA
+STEP 2: PATH -> Dynamic RAG Document Grounding
+STEP 3: RETRIEVAL -> Triggered (Hybrid FAISS + BM25)
+STEP 4: RETRIEVAL RESULT -> Found 3 relevant chunks.
+STEP 5: SOURCES IDENTIFIED -> ['Personal Loan.md', 'Apply for a Loan.md']
+STEP 6: GENERATION -> Requesting LLM Synthesis
+STEP 7: GENERATION PATH -> LLM Synthesis Success
+FINAL OUTPUT: 'To apply for a loan at ZX Bank, follow these steps...'
+************************************************************
+```
+
+---
+
 ## 📝 Sample Queries to Try
 - **General**: "About ZX Bank"
 - **Services**: "Find Safe Deposit Boxes in Pune"
