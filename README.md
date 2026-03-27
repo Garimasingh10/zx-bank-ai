@@ -16,7 +16,6 @@ The system is built on a modular **FastAPI** backend:
 1.  **Document Processor**: Uses `MarkdownHeaderTextSplitter` to preserve semantic structure and extracts TF-IDF metadata.
 2.  **Hybrid Retriever**: Orchestrates a dual-path search (Embeddings + BM25) with dynamic keyword pinning.
 3.  **Conversational Agent**: An intent-aware state machine that handles classification, retrieval, and LLM synthesis.
-4.  **Hardware-Adaptive Mode**: Automatically switches to a "Lightweight" (BM25 only) mode on resource-constrained environments like Render Free Tier.
 
 ---
 
@@ -60,7 +59,6 @@ pip install -r requirements.txt
 Create a `.env` file in the root:
 ```env
 OPENROUTER_API_KEY=your_key_here
-LIGHTWEIGHT_MODE=false # Set to true for 512MB RAM environments (Render)
 ```
 
 ### 4. Run the Application
@@ -68,14 +66,6 @@ LIGHTWEIGHT_MODE=false # Set to true for 512MB RAM environments (Render)
 python app.py
 ```
 The assistant will be available at `http://localhost:8000`.
-
----
-
-## 🌐 Deployment (Render Free Tier)
-Zia is optimized for **Render**. Due to the 512MB RAM limit on the free tier:
-1.  Deploy as a **Web Service**.
-2.  Add `LIGHTWEIGHT_MODE=true` as an Environment Variable in the Render dashboard.
-3.  Zia will automatically switch to a high-speed, low-RAM keyword search mode to prevent crashes.
 
 ---
 
