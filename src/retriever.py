@@ -6,12 +6,27 @@ from rank_bm25 import BM25Okapi
 from src.logger import logger
 from src.config import config
 
+import os
+
 class HybridRetriever:
     def __init__(self):
-        self.encoder = SentenceTransformer(config.EMBEDDING_MODEL)
+        self._encoder = None
         self.index = None
         self.bm25 = None
         self.chunks = []
+        self.lightweight = os.getenv("LIGHTWEIGHT_MODE", "false").lower() == "true"
+        
+        if self.lightweight:
+            logger.warning("🚀 LIGHTWEIGHT MODE ENABLED: Skipping Vector Embeddings to save RAM (BM25 only).")
+        else:
+            logger.info("🛠️ HYBRID MODE ENABLED: Vector + BM25 active.")
+
+    @property
+    def encoder(self):
+        if self._encoder is None and not self.lightweight:
+            logger.info("Loading SentenceTransformer model (Lazy Load)...")
+            self._encoder = SentenceTransformer(config.EMBEDDING_MODEL)
+        return self._encoder
         
     def tokenize(self, text):
         return re.findall(r'\w+', text.lower())
@@ -42,14 +57,17 @@ class HybridRetriever:
 
         self.chunks = chunks
         
-        # 1. Build FAISS Dense Index
-        logger.info("Building FAISS vector index...")
-        texts = [c.page_content for c in chunks]
-        embeddings = self.encoder.encode(texts, convert_to_numpy=True)
-        dimension = embeddings.shape[1]
-        
-        self.index = faiss.IndexFlatL2(dimension)
-        self.index.add(embeddings)
+        # 1. Build FAISS Dense Index (Skip if lightweight)
+        if not self.lightweight:
+            logger.info("Building FAISS vector index...")
+            texts = [c.page_content for c in chunks]
+            embeddings = self.encoder.encode(texts, convert_to_numpy=True)
+            dimension = embeddings.shape[1]
+            self.index = faiss.IndexFlatL2(dimension)
+            self.index.add(embeddings)
+        else:
+            logger.info("Skipping FAISS embedding generation (Lightweight Mode).")
+            self.index = None
         
         # 2. Build BM25 Sparse Index
         logger.info("Building BM25 keyword index...")
@@ -80,18 +98,20 @@ class HybridRetriever:
         if max_bm25 > 0:
             bm25_scores = bm25_scores / max_bm25
             
-        # 2. FAISS Dense Search
-        query_vector = self.encoder.encode([query], convert_to_numpy=True)
-        distances, indices_faiss = self.index.search(query_vector, len(self.chunks))
-        
+        # 2. FAISS Dense Search (Skip if lightweight)
         dense_scores = np.zeros(len(self.chunks))
-        for rank, (idx, dist) in enumerate(zip(indices_faiss[0], distances[0])):
-            if dist < config.DISTANCE_THRESHOLD:
-                dense_scores[idx] = max(0, 1.0 - (dist / config.DISTANCE_THRESHOLD))
+        if not self.lightweight and self.index is not None:
+            query_vector = self.encoder.encode([query], convert_to_numpy=True)
+            distances, indices_faiss = self.index.search(query_vector, len(self.chunks))
+            for rank, (idx, dist) in enumerate(zip(indices_faiss[0], distances[0])):
+                if dist < config.DISTANCE_THRESHOLD:
+                    dense_scores[idx] = max(0, 1.0 - (dist / config.DISTANCE_THRESHOLD))
         
         # 3. Combine scores
-        # Recalibrated for better semantic/keyword balance: 0.3 Dense, 0.7 Sparse
-        final_scores = (0.3 * dense_scores) + (0.7 * bm25_scores)
+        if self.lightweight:
+            final_scores = bm25_scores
+        else:
+            final_scores = (0.3 * dense_scores) + (0.7 * bm25_scores)
         final_scores = np.atleast_1d(final_scores)
         
         # 4. Hyper-Retrieval Precision (Demo-Aware Dynamic Pinning)
