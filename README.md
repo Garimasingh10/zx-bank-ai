@@ -28,6 +28,14 @@ Zia uses a **3-Layer Retrieval Engine**:
 
 ---
 
+## 📥 Data Ingestion (Adding Knowledge)
+Zia supports both `.md` (Markdown) and `.txt` (Plain Text) documents.
+1.  Place your document in the `data/docs/` directory.
+2.  **Markdown Support**: Zia automatically parses headers (`#`, `##`, etc.) to understand the document structure.
+3.  **Automatic Re-indexing**: On the next startup, Zia will automatically detect the new file, generate metadata (TF-IDF keywords), and update the FAISS/BM25 index.
+
+---
+
 ## 🛠️ Setup Instructions
 
 ### 1. Prerequisites
@@ -66,7 +74,7 @@ The assistant will be available at `http://localhost:8000`.
 ## 🌐 Deployment (Render Free Tier)
 Zia is optimized for **Render**. Due to the 512MB RAM limit on the free tier:
 1.  Deploy as a **Web Service**.
-2.  Add `LIGHTWEIGHT_MODE=true` as an Environment Variable.
+2.  Add `LIGHTWEIGHT_MODE=true` as an Environment Variable in the Render dashboard.
 3.  Zia will automatically switch to a high-speed, low-RAM keyword search mode to prevent crashes.
 
 ---

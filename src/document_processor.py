@@ -19,25 +19,35 @@ class DocumentProcessor:
         self.splitter = MarkdownHeaderTextSplitter(headers_to_split_on=self.headers_to_split_on)
 
     def process_documents(self):
-        docs_path = os.path.join(config.DOCS_DIR, "*.md")
-        files = glob.glob(docs_path)
+        # Support both .md and .txt
+        md_files = glob.glob(os.path.join(config.DOCS_DIR, "*.md"))
+        txt_files = glob.glob(os.path.join(config.DOCS_DIR, "*.txt"))
+        files = md_files + txt_files
         
         if not files:
-            logger.warning(f"No markdown documents found in {config.DOCS_DIR}. RAG will be disabled.")
+            logger.warning(f"No documents found in {config.DOCS_DIR}. RAG will be disabled.")
             return []
 
         all_splits = []
         for file in files:
-            with open(file, "r", encoding="utf-8") as f:
-                content = f.read()
-            
-            # Split document and retain markdown structure in metadata
-            splits = self.splitter.split_text(content)
-            for split in splits:
-                split.metadata["source"] = os.path.basename(file)
-                all_splits.append(split)
+            try:
+                with open(file, "r", encoding="utf-8") as f:
+                    content = f.read()
                 
-        logger.info(f"Extracted {len(all_splits)} structured chunks from {len(files)} markdown files.")
+                if file.endswith('.md'):
+                    splits = self.splitter.split_text(content)
+                else:
+                    # Treat .txt as a single document with file name as header
+                    from langchain.schema import Document
+                    splits = [Document(page_content=content, metadata={"Header1": os.path.basename(file)})]
+
+                for split in splits:
+                    split.metadata["source"] = os.path.basename(file)
+                    all_splits.append(split)
+            except Exception as e:
+                logger.error(f"Error processing {file}: {e}")
+                
+        logger.info(f"Extracted {len(all_splits)} chunks from {len(files)} files.")
         
         # Apply TF-IDF to extract top keywords per chunk as metadata (Lightweight NLP requirement)
         self._attach_tfidf_keywords(all_splits)
